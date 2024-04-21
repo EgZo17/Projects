@@ -1,0 +1,78 @@
+MorseCode = {'a': '.-', 'b': '-...', 'c': '-.-.',
+             'd': '-..', 'e': '.', 'f': '..-.',
+             'g': '--.', 'h': '....', 'i': '..',
+             'j': '.---', 'k': '-.-', 'l': '.-..',
+             'm': '--', 'n': '-.', 'o': '---',
+             'p': '.--.', 'q': '--.-', 'r': '.-.',
+             's': '...', 't': '-', 'u': '..-',
+             'v': '...-', 'w': '.--', 'x': '-..-',
+             'y': '-.--', 'z': '--..'}
+
+
+def encode_to_morse(text):
+    text = text.lower()
+    result = ''
+    for i in text:
+        if ord('a') <= ord(i) <= ord('z'):
+            result += MorseCode[i] + ' '  # буквы отделяются друг от друга пробелом
+        elif i == ' ':
+            result += '/ '  # слова отделяются друг от друга слешем
+        else:
+            result += i + ' '
+    result = result.strip()  # для избавления от лишнего пробела в конце
+    return result
+
+
+def decode_from_morse(code):
+    code = code.split()
+    result = ''
+    for i in code:
+        if i in MorseCode.values():
+            letter = list(MorseCode.keys())[list(MorseCode.values()).index(i)]
+            result += letter
+        elif i == '/':
+            result += ' '
+        else:
+            result += i
+    return result
+
+
+def main():
+    print('Вы хотели бы зашифровать текст в код Морзе или расшифровать код в текст?')
+    print('Введите "З" или "Р" соответственно, чтобы выполнить действие.')
+    answer = input()
+    while answer != 'З' and answer != 'Р':
+        print('Ваш ответ некорректен, пожалуйста, введите букву "З" или букву "Р".')
+        answer = input()
+    if answer == 'З':
+        print('Отлично! Теперь введите текст на латинице для кодирования, будьте внимательны:')
+        print('при обратной расшифровке текст не сохранит регистр!')
+        data = input()
+        encrypted_text = encode_to_morse(data)
+        print('Результат кодирования:')
+        print(encrypted_text)
+    else:
+        print('Отлично! Теперь введите код Морзе, который будет преобразован в текст на латинице.')
+        print('Будьте внимательны: вы должны соблюсти формат ввода, иначе код может интерпретироваться')
+        print('неверно. Между элементами одной буквы пробелов нет. Между буквами в слове, как и между')
+        print('буквами и знаками препинания (и другими символами) ставится один пробел. Пробел между')
+        print('словами в тексте обозначается обычным слешем в коде (обособленным пробелами).')
+        data = input()
+        decrypted_code = decode_from_morse(data)
+        print('Результат расшифровки:')
+        print(decrypted_code)
+    print('Вы хотите завершить работу с программой или продолжить?')
+    print('Введите "К" или "П" соответственно.')
+    answer = input()
+    while answer != 'К' and answer != 'П':
+        print('Ваш ответ некорректен, пожалуйста, введите букву "К" или букву "П".')
+        answer = input()
+    if answer == 'К':
+        print('До встречи!')
+        return
+    else:
+        main()
+
+
+print('Здравствуйте!')
+main()
