@@ -1,0 +1,232 @@
+import tkinter
+import random
+
+
+def prepare_and_start():
+    global player, exit, fires, enemies, n_enemies, freeze, frozen, enabled_freeze
+    # Список ниже для хранения координат, на которых уже располагается какой-либо объект
+    already_claimed_pos = []
+    # Список ниже для хранения областей зрения захватчиков, чтобы персонаж не появлялся
+    # уже непосредственно на глазах врага
+    areas_pos = []
+    canvas.delete('all')
+    canvas.create_image(0, 0, anchor='nw', image=background_pic)
+    # Генерация врагов теперь происходит первее всего, чтобы занести поля зрения врагов
+    # в список, и персонаж не появился в них
+    n_enemies = random.randint(3, 5)
+    enemies = []
+    for i in range(n_enemies):
+        enemy_x_y = (random.randint(0, N_X - 1) * step,
+                     random.randint(0, N_Y - 1) * step)
+        while check_claim(enemy_x_y, already_claimed_pos):
+            enemy_x_y = (random.randint(0, N_X - 1) * step,
+                         random.randint(0, N_Y - 1) * step)
+        already_claimed_pos.append(enemy_x_y)
+        enemy = canvas.create_image((enemy_x_y[0], enemy_x_y[1]),
+                                    image=enemy_pic, anchor='nw')
+        area = canvas.create_oval((enemy_x_y[0] - step, enemy_x_y[1] - step),
+                                  (enemy_x_y[0] + step * 2, enemy_x_y[1] + step * 2),
+                                  outline='red')
+        areas_pos.append(canvas.coords(area))
+        enemies.append((enemy, random.choice([random_move, move_to_player]), area))
+        for a in enemies:
+            if a[1] == random_move:
+                canvas.itemconfig(a[2], outline='#FFE900')
+    areas_pos = [((i[0], i[2]), (i[1], i[3])) for i in areas_pos]
+    player_pos_new = (random.randint(0, N_X - 1) * step,
+                      random.randint(0, N_Y - 1) * step)
+    # Эта конструкция не исключает полностью шанс появления персонажа в поле
+    # зрения врага, но очень сильно его уменьшает, при этом даже в случае
+    # появления рядом с захватчиком у героя есть шанс сбежать
+    for i in areas_pos:
+        while (check_claim(player_pos_new, already_claimed_pos)
+               or player_pos_new[0] in range(int(i[0][0]), int(i[0][1]))
+               and player_pos_new[1] in range(int(i[1][0]), int(i[1][1]))):
+            player_pos_new = (random.randint(0, N_X - 1) * step,
+                              random.randint(0, N_Y - 1) * step)
+            continue
+    already_claimed_pos.append(player_pos_new)
+    exit_pos_new = (random.randint(0, N_X - 1) * step,
+                    random.randint(0, N_Y - 1) * step)
+    while check_claim(exit_pos_new, already_claimed_pos):
+        exit_pos_new = (random.randint(0, N_X - 1) * step,
+                        random.randint(0, N_Y - 1) * step)
+    already_claimed_pos.append(exit_pos_new)
+    player = canvas.create_image((player_pos_new[0], player_pos_new[1]),
+                                 image=player_pic, anchor='nw')
+    exit = canvas.create_image((exit_pos_new[0], exit_pos_new[1]),
+                               image=portal_pic, anchor='nw')
+    n_fires = random.randint(15, 20)
+    fires = []
+    for i in range(n_fires):
+        fire_x_y = (random.randint(0, N_X - 1) * step,
+                    random.randint(0, N_Y - 1) * step)
+        while check_claim(fire_x_y, already_claimed_pos):
+            fire_x_y = (random.randint(0, N_X - 1) * step,
+                        random.randint(0, N_Y - 1) * step)
+        already_claimed_pos.append(fire_x_y)
+        fire = canvas.create_image((fire_x_y[0], fire_x_y[1]),
+                                   image=fire_pic, anchor='nw')
+        fires.append(fire)
+    label.config(text="Спаситесь из плена робокопов! Избегая огня и врагов, доберитесь до портала!")
+    frozen = 0
+    freeze.place(x=600, y=0)
+    enabled_freeze = True
+    master.bind("<KeyPress>", key_pressed)
+
+
+def check_claim(a_tuple, main_list):
+    if a_tuple in main_list:
+        return True
+    else:
+        return False
+    # Функция для проверки наличия координат в списке уже занятых
+
+
+def random_move(counter):
+    return random.choice([(step, 0), (-step, 0), (0, step), (0, -step)])
+
+
+def move_to_player(number_of_enemy):
+    player_pos = canvas.coords(player)
+    enemy_pos = canvas.coords(enemies[number_of_enemy][0])
+    if abs(player_pos[0] - enemy_pos[0]) > abs(player_pos[1] - enemy_pos[1]):
+        if player_pos[0] > enemy_pos[0]:
+            return step, 0
+        else:
+            return -step, 0
+    else:
+        if player_pos[1] > enemy_pos[1]:
+            return 0, step
+        else:
+            return 0, -step
+
+
+def do_nothing(event):
+    if event.keysym in ['r', 'R'] or event.char in ['к', 'К']:
+        prepare_and_start()
+    if event.keysym in ['f', 'F'] or event.char in ['а', 'А']:
+        freeze_all()
+
+
+def freeze_all():
+    global frozen, freeze, enabled_freeze
+    frozen = random.randint(3, 6)
+    for i in enemies:
+        canvas.itemconfig(i[2], outline='blue')
+    freeze.place_forget()
+    enabled_freeze = False
+
+
+def move_wrap(canvas_x, obj, move):
+    canvas_x.move(obj, move[0], move[1])
+
+
+def check_move():
+    if canvas.coords(player) == canvas.coords(exit):
+        canvas.delete(player)
+        label.config(text="Ура! Вы смогли сбежать!")
+        master.bind('<KeyPress>', do_nothing)
+        return
+    for fire in fires:
+        if canvas.coords(player) == canvas.coords(fire):
+            label.config(text='Вы сгорели в пламени...')
+            master.bind('<KeyPress>', do_nothing)
+    for enemy in enemies:
+        dangerous_area = canvas.coords(enemy[2])
+        if (canvas.coords(player)[0] in range(int(dangerous_area[0]), int(dangerous_area[2]))
+                and canvas.coords(player)[1] in range(int(dangerous_area[1]), int(dangerous_area[3]))):
+            label.config(text='Вы попались на глаза захватчикам...')
+            master.bind('<KeyPress>', do_nothing)
+
+
+def key_pressed(event):
+    global counter, frozen
+    if event.keysym in ['Up', 'w', 'W'] or event.char in ['ц', 'Ц']:
+        move_wrap(canvas, player, (0, -step))
+        if canvas.coords(player)[1] == -step:
+            move_wrap(canvas, player, (0, step * N_Y))
+    if event.keysym in ['Left', 'a', 'A'] or event.char in ['ф', 'Ф']:
+        canvas.move(player, -step, 0)
+        if canvas.coords(player)[0] < 0:
+            move_wrap(canvas, player, (step * N_X, 0))
+    if event.keysym in ['Right', 'd', 'D'] or event.char in ['в', 'В']:
+        canvas.move(player, step, 0)
+        if canvas.coords(player)[0] > step * (N_X - 1):
+            move_wrap(canvas, player, (-step * N_X, 0))
+    if event.keysym in ['Down', 's', 'S'] or event.char in ['ы', 'Ы']:
+        canvas.move(player, 0, step)
+        if canvas.coords(player)[1] == step * N_Y:
+            move_wrap(canvas, player, (0, -step * N_Y))
+    if event.keysym in ['Up', 'Left', 'Right', 'Down',
+                        'w', 'a', 's', 'd', 'W', 'A', 'S', 'D'] and frozen == 0\
+            or event.char in ['ц', 'ф', 'ы', 'в', 'Ц', 'Ф', 'Ы', 'В'] and frozen == 0:
+        for enemy in enemies:
+            counter += 1
+            direction = enemy[1](counter)
+            move_wrap(canvas, enemy[0], direction)
+            move_wrap(canvas, enemy[2], direction)
+            if canvas.coords(enemy[0])[1] == -step:
+                move_wrap(canvas, enemy, (0, step * N_Y))
+            elif canvas.coords(enemy[0])[0] < 0:
+                move_wrap(canvas, enemy, (step * N_X, 0))
+            elif canvas.coords(enemy[0])[0] > step * (N_X - 1):
+                move_wrap(canvas, enemy, (-step * N_X, 0))
+            elif canvas.coords(enemy[0])[1] == step * N_Y:
+                move_wrap(canvas, enemy, (0, -step * N_Y))
+            if counter == n_enemies - 1:
+                counter = -1
+    elif frozen > 0:
+        frozen -= 1
+    if frozen == 0:
+        for i in enemies:
+            if i[1] == random_move:
+                canvas.itemconfig(i[2], outline='#FFE900')
+            else:
+                canvas.itemconfig(i[2], outline='red')
+    if event.keysym in ['r', 'R'] or event.char in ['к', 'К']:
+        prepare_and_start()
+    if (event.keysym in ['f', 'F'] and enabled_freeze
+            or event.char in ['а', 'А'] and enabled_freeze):
+        freeze_all()
+    check_move()
+
+
+master = tkinter.Tk()
+
+step = 60
+counter = -1
+n_enemies = 0
+frozen = 0
+enabled_freeze = True
+N_X = 15
+N_Y = 15
+fires = []
+enemies = []
+canvas = tkinter.Canvas(master, bg='#645858',
+                        width=step * N_X, height=step * N_Y)
+label = tkinter.Label(master, text="Спаситесь из плена робокопов! Избегая огня и врагов, доберитесь до портала!")
+restart = tkinter.Button(master, text="Перезагрузить уровень",
+                         command=prepare_and_start)
+freeze = tkinter.Button(master, text='Заморозить врагов',
+                        command=freeze_all)
+freeze.place(x=600, y=0)
+restart.pack()
+label.pack()
+canvas.pack()
+# На все картинки для объектов приведены ссылки внизу, но для корректной работы
+# эти изображения требуется сжать до расширения 60х60 пикселей
+# Удобный сайт: https://products.aspose.app/imaging/ru/image-resize/gif
+player_pic = tkinter.PhotoImage(file='C:/Users/EgZo/OneDrive/Pictures/python/bot.gif')
+# https://tenor.com/ru/view/bot-funny-gif-9833904265510169716
+portal_pic = tkinter.PhotoImage(file='C:/Users/EgZo/OneDrive/Pictures/python/portal.gif')
+# https://tenor.com/ru/view/sonic-mania-portal-sticker-gif-26289678
+fire_pic = tkinter.PhotoImage(file='C:/Users/EgZo/OneDrive/Pictures/python/fire.gif')
+# https://tenor.com/ru/view/fire-gif-24928362
+enemy_pic = tkinter.PhotoImage(file='C:/Users/EgZo/OneDrive/Pictures/python/enemy.gif')
+# https://tenor.com/ru/view/bot-walking-robot-gun-character-gif-16778643
+background_pic = tkinter.PhotoImage(file='C:/Users/EgZo/OneDrive/Pictures/python/floor.png')
+# Любая текстура тёмного камня или металла 900х900
+master.bind("<KeyPress>", key_pressed)
+prepare_and_start()
+master.mainloop()
